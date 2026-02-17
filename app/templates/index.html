@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+        {% if team_config.logo %}
+        <img src="{{ url_for('static', filename='images/' + team_config.logo) }}" alt="{{ team_config.name }}"
+             style="height: 120px; width: auto;" class="mb-4">
+        {% endif %}
+        <h1 class="display-4 fw-bold" style="color: var(--team-primary);">{{ team_config.name }}</h1>
+        <p class="lead text-muted">{{ team_config.season_year }} Season Analytics</p>
+        <hr class="my-4" style="border-color: var(--team-secondary); border-width: 3px;">
+        {% if current_user.is_authenticated %}
+        <div class="row g-3 mt-3">
+            <div class="col-md-4">
+                <a href="{{ url_for('pitchers.index') }}" class="btn btn-outline-primary btn-lg w-100">
+                    <i class="bi bi-person-badge d-block mb-1" style="font-size: 2rem;"></i>
+                    Pitchers
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{{ url_for('reports.index') }}" class="btn btn-outline-primary btn-lg w-100">
+                    <i class="bi bi-file-earmark-bar-graph d-block mb-1" style="font-size: 2rem;"></i>
+                    Reports
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{{ url_for('ingest.index') }}" class="btn btn-outline-primary btn-lg w-100">
+                    <i class="bi bi-upload d-block mb-1" style="font-size: 2rem;"></i>
+                    Upload Data
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-lg mt-3" style="background-color: var(--team-primary); color: var(--team-accent);">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Log In
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

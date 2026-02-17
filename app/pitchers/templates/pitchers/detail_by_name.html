@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('pitchers.index') }}" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i> Back
+    </a>
+    <div>
+        <h2 class="mb-0">{{ player.name }}</h2>
+        <span class="text-muted">
+            {{ player.throws or '?' }} | {{ player.team or 'Unknown' }}
+            | {{ game_count }} game{{ 's' if game_count != 1 }} | {{ pitch_count }} pitches
+        </span>
+    </div>
+</div>
+
+<!-- Pitch Arsenal Table -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Pitch Arsenal</h5>
+    </div>
+    <div class="card-body p-0">
+        <div id="arsenalGrid" class="ag-theme-alpine" style="height: 300px; width: 100%;"></div>
+    </div>
+</div>
+
+<!-- Usage by Batter Hand -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light"><h6 class="mb-0">Usage vs LHH</h6></div>
+            <div class="card-body">
+                <canvas id="usageLHH" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light"><h6 class="mb-0">Usage vs RHH</h6></div>
+            <div class="card-body">
+                <canvas id="usageRHH" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Heatmaps Section -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Pitch Location Heatmaps</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <h6>Overall</h6>
+                <img class="img-fluid border rounded" alt="Overall heatmap"
+                     src="{{ url_for('reports.pitcher_heatmap_by_name', pitcher_name=pitcher_name, split='overall') }}">
+            </div>
+            <div class="col-md-4">
+                <h6>vs LHH</h6>
+                <img class="img-fluid border rounded" alt="vs LHH heatmap"
+                     src="{{ url_for('reports.pitcher_heatmap_by_name', pitcher_name=pitcher_name, split='vs_lhh') }}">
+            </div>
+            <div class="col-md-4">
+                <h6>vs RHH</h6>
+                <img class="img-fluid border rounded" alt="vs RHH heatmap"
+                     src="{{ url_for('reports.pitcher_heatmap_by_name', pitcher_name=pitcher_name, split='vs_rhh') }}">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/ag-grid-config.js') }}"></script>
+<script>
+const PITCH_COLORS = {
+    'Four-Seam': '#e74c3c', 'Sinker': '#e67e22', 'Cutter': '#f39c12',
+    'Slider': '#3498db', 'Curveball': '#2ecc71', 'Sweeper': '#1abc9c',
+    'Changeup': '#9b59b6', 'Splitter': '#8e44ad', 'Knuckleball': '#95a5a6',
+    'Fastball': '#c0392b', 'Two-Seam': '#d35400', 'Slurve': '#27ae60',
+};
+
+function getPitchColor(pt) { return PITCH_COLORS[pt] || '#7f8c8d'; }
+
+function buildUsageChart(canvasId, data) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx || !data || data.length === 0) return;
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.map(d => d.pitch_type + ' (' + d.count + ')'),
+            datasets: [{ data: data.map(d => d.count), backgroundColor: data.map(d => getPitchColor(d.pitch_type)), borderWidth: 1, borderColor: '#fff' }],
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'right', labels: { font: { size: 12 } } },
+                tooltip: { callbacks: { label: function(ctx) { const i = data[ctx.dataIndex]; return i.pitch_type + ': ' + i.count + ' (' + (i.pct != null ? i.pct.toFixed(1) : '0') + '%)'; } } }
+            },
+        },
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const name = {{ pitcher_name|tojson }};
+    MexProGrid.init('arsenalGrid', '/stats/api/pitcher/by-name/' + encodeURIComponent(name) + '/arsenal');
+
+    fetch('/stats/api/pitcher/by-name/' + encodeURIComponent(name) + '/usage-by-hand')
+        .then(r => r.json())
+        .then(data => {
+            buildUsageChart('usageLHH', data.Left || []);
+            buildUsageChart('usageRHH', data.Right || []);
+        })
+        .catch(err => console.error('Failed to load usage data:', err));
+});
+</script>
+{% endblock %}

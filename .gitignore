@@ -205,5 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-data/input/20250506-EduardoVasconcelos-1_unverified.csv
-data/reports/examples/Durango PLANIFICATION 2026.pdf
+# MexPro data files
+data/input/*.csv
+data/reports/examples/*.pdf
+data/cache/
+*.db
+.env
+.claude/settings.local.json

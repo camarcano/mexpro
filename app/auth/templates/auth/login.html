@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4" style="color: var(--team-primary);">Log In</h3>
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">{{ form.username.label.text }}</label>
+                        {{ form.username(class="form-control", id="username", autofocus=true) }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">{{ form.password.label.text }}</label>
+                        {{ form.password(class="form-control", id="password") }}
+                    </div>
+                    <button type="submit" class="btn w-100" style="background-color: var(--team-primary); color: var(--team-accent);">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Log In
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

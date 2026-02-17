@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Upload Trackman Data{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-upload me-2"></i>Upload Trackman CSV</h2>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">Select Trackman CSV file</label>
+                        <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
+                        <div class="form-text">Accepted format: Trackman pitch-level CSV export (*.csv)</div>
+                    </div>
+                    <button type="submit" class="btn btn-team" id="uploadBtn">
+                        <i class="bi bi-cloud-upload me-1"></i>Upload & Import
+                    </button>
+                </form>
+
+                <div id="progressSection" class="mt-4 d-none">
+                    <h6>Import Progress</h6>
+                    <div class="progress mb-2" style="height: 24px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar"
+                             role="progressbar" style="width: 0%;">0%</div>
+                    </div>
+                    <div id="progressLog" class="small"></div>
+                </div>
+
+                <div id="resultSection" class="mt-4 d-none">
+                    <div id="resultAlert" class="alert"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">Recent Uploads</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr><th>File</th><th>Status</th><th>Rows</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for log in history %}
+                        <tr>
+                            <td class="small">{{ log.filename[:30] }}</td>
+                            <td>
+                                {% if log.status == 'done' %}
+                                <span class="badge bg-success">Done</span>
+                                {% elif log.status == 'error' %}
+                                <span class="badge bg-danger">Error</span>
+                                {% elif log.status == 'skipped' %}
+                                <span class="badge bg-warning text-dark">Skipped</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ log.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ log.rows_imported or 0 }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-muted text-center small">No uploads yet</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('csvFile');
+    const btn = document.getElementById('uploadBtn');
+    const progressSection = document.getElementById('progressSection');
+    const progressBar = document.getElementById('progressBar');
+    const progressLog = document.getElementById('progressLog');
+    const resultSection = document.getElementById('resultSection');
+    const resultAlert = document.getElementById('resultAlert');
+
+    if (!fileInput.files.length) return;
+
+    btn.disabled = true;
+    progressSection.classList.remove('d-none');
+    resultSection.classList.add('d-none');
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressLog.textContent = 'Starting upload...';
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        const response = await fetch('{{ url_for("ingest.upload") }}', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = JSON.parse(line.slice(6));
+
+                    if (data.total && data.current) {
+                        const pct = Math.round((data.current / data.total) * 100);
+                        progressBar.style.width = pct + '%';
+                        progressBar.textContent = pct + '%';
+                    }
+
+                    if (data.message) {
+                        progressLog.textContent = data.message;
+                    }
+
+                    if (data.step === 'done') {
+                        progressBar.style.width = '100%';
+                        progressBar.textContent = '100%';
+                        progressBar.classList.remove('progress-bar-animated');
+                        progressBar.classList.add('bg-success');
+                        resultSection.classList.remove('d-none');
+                        resultAlert.className = 'alert alert-success';
+                        resultAlert.innerHTML = '<strong>Import complete!</strong> ' +
+                            data.imported + ' pitches imported, ' +
+                            data.skipped + ' skipped, ' +
+                            data.errors + ' errors.';
+                    } else if (data.step === 'error') {
+                        progressBar.classList.remove('progress-bar-animated');
+                        progressBar.classList.add('bg-danger');
+                        resultSection.classList.remove('d-none');
+                        resultAlert.className = 'alert alert-danger';
+                        resultAlert.innerHTML = '<strong>Error:</strong> ' + data.message;
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        resultSection.classList.remove('d-none');
+        resultAlert.className = 'alert alert-danger';
+        resultAlert.innerHTML = '<strong>Upload failed:</strong> ' + err.message;
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+{% endblock %}
