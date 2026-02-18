@@ -49,10 +49,12 @@ class PitcherStatsService:
             Pitch.pitcher_team,
             func.count(Pitch.id).label('total_pitches'),
             func.count(distinct(Pitch.game_id)).label('games'),
-            # Batters faced (unique PA within same game/inning/PA)
-            func.count(distinct(
-                Pitch.pa_of_inning
-            )).label('pa_raw'),
+            # Batters faced: count pitches where play_result or k_or_bb is set (PA ended)
+            func.sum(case((
+                (Pitch.play_result.isnot(None)) & (Pitch.play_result != 'Undefined') |
+                (Pitch.k_or_bb.isnot(None)) & (Pitch.k_or_bb != 'Undefined'),
+                1
+            ), else_=0)).label('bf_count'),
             # Strikeouts (K)
             func.sum(case((Pitch.k_or_bb == 'Strikeout', 1), else_=0)).label('strikeouts'),
             # Walks (BB)
@@ -117,10 +119,13 @@ class PitcherStatsService:
             with_loc = row.with_location or 0
             csw = (row.called_strikes or 0) + (row.swinging_strikes or 0)
 
-            # BF: count distinct plate appearances via last-pitch-of-PA
-            # pa_raw from distinct pa_of_inning is a rough proxy;
-            # more accurate: count pitches where at_bat_result or play_result is set
-            bf = row.pa_raw or 0
+            # BF from completed PAs
+            bf = row.bf_count or 0
+
+            # K% and BB% calculated as percentage of batters faced, not total pitches
+            k_pct = pct(row.strikeouts, bf) if bf else None
+            bb_pct = pct(row.walks, bf) if bf else None
+            k_bb_diff = (k_pct - bb_pct) if (k_pct is not None and bb_pct is not None) else None
 
             result.append({
                 'pitcher_id': row.pitcher_id,
@@ -132,8 +137,9 @@ class PitcherStatsService:
                 'p': total,
                 'k': row.strikeouts,
                 'bb': row.walks,
-                'k_pct': pct(row.strikeouts, total),
-                'bb_pct': pct(row.walks, total),
+                'k_pct': k_pct,
+                'bb_pct': bb_pct,
+                'k_bb_diff': k_bb_diff,
                 'csw_pct': pct(csw, total),
                 'in_zone_pct': pct(in_zone, with_loc),
                 'whiff_pct': pct(row.swinging_strikes, swings),

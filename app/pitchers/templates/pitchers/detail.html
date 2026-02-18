@@ -2,18 +2,28 @@
 {% block title %}{{ player.name }}{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center mb-4">
+<div class="d-flex align-items-start mb-4">
     <a href="{{ url_for('pitchers.index') }}" class="btn btn-outline-secondary btn-sm me-3">
         <i class="bi bi-arrow-left"></i> Back
     </a>
-    <div>
-        <h2 class="mb-0">{{ player.name }}</h2>
+    {% if player.trackman_id %}
+    <div class="me-3">
+        <img id="playerHeadshot"
+             src="https://midfield.mlbstatic.com/v1/people/{{ player.trackman_id }}/spots/120"
+             alt="{{ player.name }}"
+             class="rounded-circle border"
+             style="width: 80px; height: 80px; object-fit: cover; background-color: #f0f0f0;"
+             onerror="this.style.display='none'">
+    </div>
+    {% endif %}
+    <div class="flex-grow-1">
+        <h2 class="mb-1">{{ player.name }}</h2>
         <span class="text-muted">
             {{ player.throws or '?' }} | {{ player.team or 'Unknown' }}
             | {{ game_count }} game{{ 's' if game_count != 1 }} | {{ pitch_count }} pitches
         </span>
     </div>
-    <div class="ms-auto">
+    <div>
         <a href="{{ url_for('reports.pitcher_pdf', pitcher_id=player.trackman_id) }}"
            class="btn btn-team btn-sm">
             <i class="bi bi-file-earmark-pdf me-1"></i>Download Report
@@ -31,13 +41,42 @@
     </div>
 </div>
 
+<!-- Pitch Profiles (Movement) -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Pitch Breaks</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6 class="text-center">Overall</h6>
+                <div style="position: relative; width: 100%; padding-bottom: 100%;">
+                    <canvas id="profileOverall" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-center">vs RHH</h6>
+                <div style="position: relative; width: 100%; padding-bottom: 100%;">
+                    <canvas id="profileRHH" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-center">vs LHH</h6>
+                <div style="position: relative; width: 100%; padding-bottom: 100%;">
+                    <canvas id="profileLHH" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Usage by Batter Hand -->
 <div class="row mb-4">
     <div class="col-md-6">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-light"><h6 class="mb-0">Usage vs LHH</h6></div>
             <div class="card-body">
-                <canvas id="usageLHH" height="200"></canvas>
+                <canvas id="usageLHH" style="height: 250px;"></canvas>
             </div>
         </div>
     </div>
@@ -45,7 +84,7 @@
         <div class="card shadow-sm border-0">
             <div class="card-header bg-light"><h6 class="mb-0">Usage vs RHH</h6></div>
             <div class="card-body">
-                <canvas id="usageRHH" height="200"></canvas>
+                <canvas id="usageRHH" style="height: 250px;"></canvas>
             </div>
         </div>
     </div>
@@ -60,17 +99,17 @@
         <div class="row text-center">
             <div class="col-md-4">
                 <h6>Overall</h6>
-                <img id="heatmapOverall" class="img-fluid border rounded" alt="Overall heatmap"
+                <img class="img-fluid border rounded" alt="Overall heatmap"
                      src="{{ url_for('reports.pitcher_heatmap', pitcher_id=player.trackman_id, split='overall') }}">
             </div>
             <div class="col-md-4">
                 <h6>vs LHH</h6>
-                <img id="heatmapLHH" class="img-fluid border rounded" alt="vs LHH heatmap"
+                <img class="img-fluid border rounded" alt="vs LHH heatmap"
                      src="{{ url_for('reports.pitcher_heatmap', pitcher_id=player.trackman_id, split='vs_lhh') }}">
             </div>
             <div class="col-md-4">
                 <h6>vs RHH</h6>
-                <img id="heatmapRHH" class="img-fluid border rounded" alt="vs RHH heatmap"
+                <img class="img-fluid border rounded" alt="vs RHH heatmap"
                      src="{{ url_for('reports.pitcher_heatmap', pitcher_id=player.trackman_id, split='vs_rhh') }}">
             </div>
         </div>
@@ -83,74 +122,306 @@
 <script src="{{ url_for('static', filename='js/ag-grid-config.js') }}"></script>
 <script>
 const PITCH_COLORS = {
-    'Four-Seam': '#e74c3c',
-    'Sinker': '#e67e22',
-    'Cutter': '#f39c12',
-    'Slider': '#3498db',
-    'Curveball': '#2ecc71',
-    'Sweeper': '#1abc9c',
-    'Changeup': '#9b59b6',
-    'Splitter': '#8e44ad',
-    'Knuckleball': '#95a5a6',
-    'Fastball': '#c0392b',
-    'Two-Seam': '#d35400',
-    'Slurve': '#27ae60',
+    'Four-Seam': '#e74c3c', 'Sinker': '#e67e22', 'Cutter': '#f39c12',
+    'Slider': '#3498db', 'Curveball': '#2ecc71', 'Sweeper': '#1abc9c',
+    'Changeup': '#9b59b6', 'Splitter': '#8e44ad', 'Knuckleball': '#95a5a6',
+    'Fastball': '#c0392b', 'Two-Seam': '#d35400', 'Slurve': '#27ae60',
     'Knuckle Curve': '#16a085',
 };
 
-function getPitchColor(pitchType) {
-    return PITCH_COLORS[pitchType] || '#7f8c8d';
-}
+function getPitchColor(pt) { return PITCH_COLORS[pt] || '#7f8c8d'; }
+
+// Pitcher handedness from server
+const PITCHER_THROWS = {{ (player.throws or 'Right')|tojson }};
 
 function buildUsageChart(canvasId, data) {
     const ctx = document.getElementById(canvasId);
-    if (!ctx || !data || data.length === 0) return;
+    if (!ctx || !data || data.length === 0) {
+        ctx.parentElement.innerHTML = '<p class="text-muted text-center">No data</p>';
+        return;
+    }
+
+    const arsenal = window.arsenalData || [];
+    const veloMap = {};
+    arsenal.forEach(a => { veloMap[a.pitch_type] = a.avg_velo; });
 
     new Chart(ctx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-            labels: data.map(d => d.pitch_type + ' (' + d.count + ')'),
+            labels: data.map(d => d.pitch_type),
             datasets: [{
-                data: data.map(d => d.count),
+                label: 'Usage %',
+                data: data.map(d => d.pct),
                 backgroundColor: data.map(d => getPitchColor(d.pitch_type)),
-                borderWidth: 1,
-                borderColor: '#fff',
+                borderWidth: 0,
             }],
         },
         options: {
+            indexAxis: 'y',
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'right',
-                    labels: { font: { size: 12 } },
-                },
+                legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
-                            const item = data[context.dataIndex];
-                            return item.pitch_type + ': ' + item.count +
-                                   ' (' + (item.pct != null ? item.pct.toFixed(1) : '0') + '%)';
+                        label: function(ctx) {
+                            const item = data[ctx.dataIndex];
+                            const velo = veloMap[item.pitch_type];
+                            let label = item.pitch_type + ': ' + (item.pct != null ? item.pct.toFixed(1) : '0') + '%';
+                            if (velo) label += ' | ' + velo.toFixed(1) + ' mph';
+                            return label;
                         }
                     }
                 }
             },
+            scales: {
+                x: {
+                    beginAtZero: true, max: 100,
+                    ticks: { callback: v => v + '%' },
+                    title: { display: true, text: 'Usage %' },
+                },
+                y: { ticks: { font: { size: 11, weight: '600' } } }
+            }
         },
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Arsenal grid
-    MexProGrid.init('arsenalGrid',
-        '/stats/api/pitcher/{{ player.trackman_id }}/arsenal');
+// Pitch breaks background plugin: crosshairs, concentric circles, labels
+function makePitchBreaksPlugin(throws) {
+    const isLefty = throws === 'Left';
+    return {
+        id: 'pitchBreaks',
+        beforeDatasetsDraw: (chart) => {
+            const ctx = chart.ctx;
+            const xAxis = chart.scales.x;
+            const yAxis = chart.scales.y;
+            const cx = xAxis.getPixelForValue(0);
+            const cy = yAxis.getPixelForValue(0);
+            const area = chart.chartArea;
+            const px6 = Math.abs(xAxis.getPixelForValue(6) - xAxis.getPixelForValue(0));
 
-    // Usage charts
-    fetch('/stats/api/pitcher/{{ player.trackman_id }}/usage-by-hand')
+            ctx.save();
+
+            // Crosshairs
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(area.left, cy);
+            ctx.lineTo(area.right, cy);
+            ctx.moveTo(cx, area.top);
+            ctx.lineTo(cx, area.bottom);
+            ctx.stroke();
+
+            // Concentric circles at 6, 12, 18, 24
+            [1, 2, 3, 4].forEach(mult => {
+                const r = px6 * mult;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                if (mult === 1 || mult === 3) {
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = '#bbb';
+                    ctx.lineWidth = 0.8;
+                } else {
+                    ctx.setLineDash([]);
+                    ctx.strokeStyle = '#888';
+                    ctx.lineWidth = 1.5;
+                }
+                ctx.stroke();
+            });
+
+            // Numeric labels where circles cross the positive X axis
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#999';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            [6, 12, 18, 24].forEach((val, i) => {
+                const r = px6 * (i + 1);
+                // Right of center on X axis
+                if (cx + r < area.right) {
+                    ctx.fillText(val + '"', cx + r, cy + 3);
+                }
+                // Left of center on X axis
+                if (cx - r > area.left) {
+                    ctx.fillText(val + '"', cx - r, cy + 3);
+                }
+            });
+            // Labels on positive Y axis (above center)
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            [6, 12, 18, 24].forEach((val, i) => {
+                const r = px6 * (i + 1);
+                if (cy - r > area.top) {
+                    ctx.fillText(val + '"', cx + 3, cy - r);
+                }
+            });
+
+            // Glove Side / Arm Side labels (switch for LHP)
+            ctx.fillStyle = '#666';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textBaseline = 'bottom';
+            if (isLefty) {
+                ctx.textAlign = 'left';
+                ctx.fillText('Arm Side \u2190', area.left + 4, area.bottom - 4);
+                ctx.textAlign = 'right';
+                ctx.fillText('\u2192 Glove Side', area.right - 4, area.bottom - 4);
+            } else {
+                ctx.textAlign = 'left';
+                ctx.fillText('\u2190 Glove Side', area.left + 4, area.bottom - 4);
+                ctx.textAlign = 'right';
+                ctx.fillText('Arm Side \u2192', area.right - 4, area.bottom - 4);
+            }
+
+            ctx.restore();
+        }
+    };
+}
+
+function buildProfileChart(canvasId, data, title) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !data || data.length === 0) {
+        canvas.parentElement.innerHTML = '<p class="text-muted text-center py-5">No data</p>';
+        return;
+    }
+
+    const byType = {};
+    const centroids = {};
+
+    data.forEach(p => {
+        if (!byType[p.pitch_type]) {
+            byType[p.pitch_type] = [];
+            centroids[p.pitch_type] = { hb: 0, ivb: 0, velo: 0, spin: 0, count: 0 };
+        }
+        byType[p.pitch_type].push(p);
+        centroids[p.pitch_type].hb += p.horz_break;
+        centroids[p.pitch_type].ivb += p.induced_vert_break;
+        centroids[p.pitch_type].velo += p.rel_speed;
+        centroids[p.pitch_type].spin += (p.spin_rate || 0);
+        centroids[p.pitch_type].count += 1;
+    });
+
+    Object.keys(centroids).forEach(pt => {
+        const c = centroids[pt];
+        c.hb /= c.count;
+        c.ivb /= c.count;
+        c.velo /= c.count;
+        c.spin /= c.count;
+    });
+
+    // Individual pitch dots
+    const datasets = Object.keys(byType).map(pt => ({
+        label: pt,
+        data: byType[pt].map(p => ({ x: p.horz_break, y: p.induced_vert_break })),
+        backgroundColor: getPitchColor(pt) + '55',
+        borderColor: 'transparent',
+        pointRadius: 2.5,
+        pointHoverRadius: 5,
+        order: 2,
+    }));
+
+    // Centroid markers (larger, opaque, with border)
+    Object.keys(centroids).forEach(pt => {
+        const c = centroids[pt];
+        datasets.push({
+            label: pt + ' avg',
+            data: [{ x: c.hb, y: c.ivb }],
+            backgroundColor: getPitchColor(pt),
+            borderColor: '#fff',
+            borderWidth: 2,
+            pointRadius: 7,
+            pointHoverRadius: 9,
+            pointStyle: 'circle',
+            order: 1,
+        });
+    });
+
+    const chart = new Chart(canvas, {
+        type: 'scatter',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
+            layout: { padding: { bottom: 18 } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    filter: (item) => !item.dataset.label.endsWith(' avg'),
+                    callbacks: {
+                        label: ctx => {
+                            const pt = ctx.dataset.label;
+                            return pt + ': HB ' + ctx.parsed.x.toFixed(1) + '", IVB ' + ctx.parsed.y.toFixed(1) + '"';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    min: -24, max: 24,
+                    ticks: { stepSize: 6, display: false },
+                    title: { display: true, text: 'Horizontal Break (in)', font: { size: 10 } },
+                    grid: { color: 'rgba(0,0,0,0)' },
+                    border: { color: '#ccc' },
+                },
+                y: {
+                    min: -24, max: 24,
+                    ticks: { stepSize: 6, display: false },
+                    title: { display: true, text: 'Induced Vert. Break (in)', font: { size: 10 } },
+                    grid: { color: 'rgba(0,0,0,0)' },
+                    border: { color: '#ccc' },
+                }
+            }
+        },
+        plugins: [makePitchBreaksPlugin(PITCHER_THROWS)]
+    });
+
+    // Build per-chart legend below the canvas
+    const legendDiv = document.createElement('div');
+    legendDiv.style.cssText = 'font-size:11px; margin-top:6px; line-height:1.6;';
+    const types = Object.keys(centroids);
+    legendDiv.innerHTML = types.map(pt => {
+        const c = centroids[pt];
+        return '<div style="display:inline-block; margin-right:12px; margin-bottom:2px;">'
+            + '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'
+            + getPitchColor(pt) + ';vertical-align:middle;margin-right:3px;"></span>'
+            + '<strong>' + pt + '</strong> '
+            + '<span style="color:#666;">'
+            + c.velo.toFixed(1) + ' mph, '
+            + c.spin.toFixed(0) + ' rpm, '
+            + 'HB ' + c.hb.toFixed(1) + '", '
+            + 'IVB ' + c.ivb.toFixed(1) + '"'
+            + '</span></div>';
+    }).join('');
+    canvas.parentElement.parentElement.appendChild(legendDiv);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const pitcherId = {{ player.trackman_id }};
+
+    MexProGrid.init('arsenalGrid', '/stats/api/pitcher/' + pitcherId + '/arsenal')
+        .then(gridApi => {
+            fetch('/stats/api/pitcher/' + pitcherId + '/arsenal')
+                .then(r => r.json())
+                .then(data => { window.arsenalData = data.rows; });
+        });
+
+    fetch('/stats/api/pitcher/' + pitcherId + '/usage-by-hand')
         .then(r => r.json())
         .then(data => {
             buildUsageChart('usageLHH', data.Left || []);
             buildUsageChart('usageRHH', data.Right || []);
         })
         .catch(err => console.error('Failed to load usage data:', err));
+
+    fetch('/stats/api/pitcher/' + pitcherId + '/pitch-profiles')
+        .then(r => r.json())
+        .then(data => {
+            buildProfileChart('profileOverall', data.overall, 'Overall');
+            buildProfileChart('profileRHH', data.vs_rhh, 'vs RHH');
+            buildProfileChart('profileLHH', data.vs_lhh, 'vs LHH');
+        })
+        .catch(err => console.error('Failed to load pitch profiles:', err));
 });
 </script>
 {% endblock %}

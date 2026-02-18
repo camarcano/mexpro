@@ -1,17 +1,17 @@
 /**
- * Pitcher leaderboard AG Grid initialization.
+ * Hitter leaderboard AG Grid initialization.
  */
 document.addEventListener('DOMContentLoaded', function() {
-    MexProGrid.init('pitcherGrid', '/stats/api/pitching-leaderboard', {
+    MexProGrid.init('hitterGrid', '/stats/api/hitting-leaderboard', {
         onCellClicked: function(event) {
             // Only navigate if clicking on the name column
             if (event.colDef.field === 'name') {
-                const pitcherId = event.data.pitcher_id;
+                const batterId = event.data.batter_id;
                 const name = event.data.name;
-                if (pitcherId) {
-                    window.location.href = '/pitchers/' + pitcherId;
+                if (batterId) {
+                    window.location.href = '/hitters/' + batterId;
                 } else if (name) {
-                    window.location.href = '/pitchers/by-name/' + encodeURIComponent(name);
+                    window.location.href = '/hitters/by-name/' + encodeURIComponent(name);
                 }
             }
         },

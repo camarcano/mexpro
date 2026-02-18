@@ -77,6 +77,19 @@ body {
     color: #6c757d;
     font-weight: 600;
 }
+.stat-card.hover-lift {
+    cursor: pointer;
+}
+.stat-card.hover-lift:hover .display-6,
+.stat-card.hover-lift:hover .card-title {
+    color: var(--team-primary);
+}
+a .stat-card .card-title {
+    color: #6c757d;
+}
+a .stat-card .display-6 {
+    color: var(--team-primary);
+}
 
 /* ─── AG Grid overrides ─── */
 .ag-theme-alpine {

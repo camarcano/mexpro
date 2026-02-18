@@ -5,13 +5,15 @@
 <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
 <div class="row g-4">
     <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card text-center border-0 shadow-sm">
-            <div class="card-body">
-                <i class="bi bi-calendar-event display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
-                <h5 class="card-title mt-3">Games Loaded</h5>
-                <p class="display-6">{{ game_count|default(0) }}</p>
+        <a href="{{ url_for('games.index') }}" class="text-decoration-none">
+            <div class="card stat-card text-center border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <i class="bi bi-calendar-event display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
+                    <h5 class="card-title mt-3">Games Loaded</h5>
+                    <p class="display-6">{{ game_count|default(0) }}</p>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card text-center border-0 shadow-sm">
@@ -23,22 +25,26 @@
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card text-center border-0 shadow-sm">
-            <div class="card-body">
-                <i class="bi bi-people display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
-                <h5 class="card-title mt-3">Pitchers</h5>
-                <p class="display-6">{{ pitcher_count|default(0) }}</p>
+        <a href="{{ url_for('pitchers.index') }}" class="text-decoration-none">
+            <div class="card stat-card text-center border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <i class="bi bi-people display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
+                    <h5 class="card-title mt-3">Pitchers</h5>
+                    <p class="display-6">{{ pitcher_count|default(0) }}</p>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card text-center border-0 shadow-sm">
-            <div class="card-body">
-                <i class="bi bi-person-standing display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
-                <h5 class="card-title mt-3">Batters</h5>
-                <p class="display-6">{{ batter_count|default(0) }}</p>
+        <a href="{{ url_for('hitters.index') }}" class="text-decoration-none">
+            <div class="card stat-card text-center border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    <i class="bi bi-person-standing display-4" style="color: var(--team-primary); opacity: 0.8;"></i>
+                    <h5 class="card-title mt-3">Batters</h5>
+                    <p class="display-6">{{ batter_count|default(0) }}</p>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 {% endblock %}

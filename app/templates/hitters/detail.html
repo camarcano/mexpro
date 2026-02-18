@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-start mb-4">
+    <a href="{{ url_for('hitters.index') }}" class="btn btn-outline-secondary btn-sm me-3">
+        <i class="bi bi-arrow-left"></i> Back
+    </a>
+    {% if player.trackman_id %}
+    <div class="me-3">
+        <img id="playerHeadshot"
+             src="https://midfield.mlbstatic.com/v1/people/{{ player.trackman_id }}/spots/120"
+             alt="{{ player.name }}"
+             class="rounded-circle border"
+             style="width: 80px; height: 80px; object-fit: cover; background-color: #f0f0f0;"
+             onerror="this.style.display='none'">
+    </div>
+    {% endif %}
+    <div class="flex-grow-1">
+        <h2 class="mb-1">{{ player.name }}</h2>
+        <span class="text-muted">
+            {{ player.bats or '?' }} | {{ player.team or 'Unknown' }}
+            | {{ player.game_count }} game{{ 's' if player.game_count != 1 }} | {{ player.pitch_count }} pitches
+        </span>
+    </div>
+</div>
+
+<!-- Batting Splits -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Batting Splits</h5>
+    </div>
+    <div class="card-body">
+        <div class="row" id="splitsContainer">
+            <div class="col-md-6">
+                <h6 class="text-center mb-3">vs LHP</h6>
+                <table class="table table-sm table-striped" id="splitsLHP">
+                    <tbody>
+                        <tr><td class="text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-center mb-3">vs RHP</h6>
+                <table class="table table-sm table-striped" id="splitsRHP">
+                    <tbody>
+                        <tr><td class="text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Quality -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Contact Quality</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="text-center">Exit Velocity vs Launch Angle</h6>
+                <canvas id="evLaScatter" style="height: 300px;"></canvas>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-center">Exit Velocity</h6>
+                <canvas id="evHisto" style="height: 300px;"></canvas>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-center">Launch Angle</h6>
+                <canvas id="laHisto" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pitch Location Heatmaps -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Pitch Location Heatmaps</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <h6>Overall</h6>
+                <img class="img-fluid border rounded" alt="Overall heatmap"
+                     src="{{ url_for('reports.batter_heatmap', batter_id=player.trackman_id, split='overall', type='pitched') }}">
+            </div>
+            <div class="col-md-4">
+                <h6>vs LHP</h6>
+                <img class="img-fluid border rounded" alt="vs LHP heatmap"
+                     src="{{ url_for('reports.batter_heatmap', batter_id=player.trackman_id, split='vs_lhp', type='pitched') }}">
+            </div>
+            <div class="col-md-4">
+                <h6>vs RHP</h6>
+                <img class="img-fluid border rounded" alt="vs RHP heatmap"
+                     src="{{ url_for('reports.batter_heatmap', batter_id=player.trackman_id, split='vs_rhp', type='pitched') }}">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const RESULT_COLORS = {
+    'Single': '#2ecc71',
+    'Double': '#3498db',
+    'Triple': '#9b59b6',
+    'HomeRun': '#e74c3c',
+    'Out': '#95a5a6',
+    'Error': '#f39c12',
+    'FieldersChoice': '#7f8c8d',
+    'Sacrifice': '#bdc3c7',
+};
+
+function getResultColor(result) { return RESULT_COLORS[result] || '#7f8c8d'; }
+
+function buildSplitsTable(tableId, data) {
+    const table = document.getElementById(tableId);
+    if (!data || !data.pa) {
+        table.innerHTML = '<tbody><tr><td class="text-muted">No data</td></tr></tbody>';
+        return;
+    }
+
+    const rows = [
+        { label: 'PA', value: data.pa },
+        { label: 'AB', value: data.ab },
+        { label: 'H', value: data.h },
+        { label: 'HR', value: data.hr },
+        { label: 'BB', value: data.bb },
+        { label: 'K', value: data.k },
+        { label: 'AVG', value: data.avg != null ? data.avg.toFixed(3) : '—' },
+        { label: 'OBP', value: data.obp != null ? data.obp.toFixed(3) : '—' },
+        { label: 'SLG', value: data.slg != null ? data.slg.toFixed(3) : '—' },
+        { label: 'OPS', value: data.ops != null ? data.ops.toFixed(3) : '—' },
+        { label: 'Avg EV', value: data.avg_ev != null ? data.avg_ev.toFixed(1) : '—' },
+    ];
+
+    table.innerHTML = '<tbody>' + rows.map(r =>
+        `<tr><th>${r.label}</th><td class="text-end">${r.value}</td></tr>`
+    ).join('') + '</tbody>';
+}
+
+function buildContactQualityCharts(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('evLaScatter').parentElement.innerHTML = '<p class="text-muted text-center">No contact data</p>';
+        return;
+    }
+
+    // EV vs LA Scatter
+    const scatterCtx = document.getElementById('evLaScatter');
+    const scatterData = data.map(d => ({
+        x: d.launch_angle,
+        y: d.exit_speed,
+        result: d.result,
+    }));
+
+    // Group by result type
+    const byResult = {};
+    scatterData.forEach(d => {
+        if (!byResult[d.result]) byResult[d.result] = [];
+        byResult[d.result].push({ x: d.x, y: d.y });
+    });
+
+    const scatterDatasets = Object.keys(byResult).map(result => ({
+        label: result,
+        data: byResult[result],
+        backgroundColor: getResultColor(result),
+        borderColor: getResultColor(result),
+        pointRadius: 4,
+        pointHoverRadius: 6,
+    }));
+
+    new Chart(scatterCtx, {
+        type: 'scatter',
+        data: { datasets: scatterDatasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 10 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const la = ctx.parsed.x.toFixed(1);
+                            const ev = ctx.parsed.y.toFixed(1);
+                            return ctx.dataset.label + ': ' + ev + ' mph @ ' + la + '°';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Launch Angle (°)', font: { size: 11 } },
+                    min: -90,
+                    max: 90,
+                },
+                y: {
+                    title: { display: true, text: 'Exit Velocity (mph)', font: { size: 11 } },
+                    min: 0,
+                    max: 120,
+                }
+            }
+        }
+    });
+
+    // EV Histogram
+    const evCtx = document.getElementById('evHisto');
+    const evValues = data.map(d => d.exit_speed);
+    const evBins = createHistogramBins(evValues, 0, 120, 10);
+
+    new Chart(evCtx, {
+        type: 'bar',
+        data: {
+            labels: evBins.labels,
+            datasets: [{
+                label: 'Count',
+                data: evBins.counts,
+                backgroundColor: '#3498db',
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { title: { display: true, text: 'Count' }, beginAtZero: true },
+                x: { title: { display: true, text: 'EV (mph)' } }
+            }
+        }
+    });
+
+    // LA Histogram
+    const laCtx = document.getElementById('laHisto');
+    const laValues = data.map(d => d.launch_angle);
+    const laBins = createHistogramBins(laValues, -90, 90, 10);
+
+    new Chart(laCtx, {
+        type: 'bar',
+        data: {
+            labels: laBins.labels,
+            datasets: [{
+                label: 'Count',
+                data: laBins.counts,
+                backgroundColor: '#9b59b6',
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { title: { display: true, text: 'Count' }, beginAtZero: true },
+                x: { title: { display: true, text: 'LA (°)' } }
+            }
+        }
+    });
+}
+
+function createHistogramBins(values, min, max, binSize) {
+    const bins = {};
+    const labels = [];
+
+    // Create bins
+    for (let i = min; i < max; i += binSize) {
+        const binLabel = i + '-' + (i + binSize);
+        labels.push(binLabel);
+        bins[binLabel] = 0;
+    }
+
+    // Fill bins
+    values.forEach(v => {
+        const binIndex = Math.floor((v - min) / binSize);
+        const binStart = min + (binIndex * binSize);
+        const binLabel = binStart + '-' + (binStart + binSize);
+        if (bins[binLabel] !== undefined) {
+            bins[binLabel]++;
+        }
+    });
+
+    return {
+        labels: labels,
+        counts: labels.map(l => bins[l])
+    };
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const batterId = {{ player.trackman_id }};
+
+    // Load splits
+    fetch('/stats/api/batter/' + batterId + '/splits')
+        .then(r => r.json())
+        .then(data => {
+            buildSplitsTable('splitsLHP', data.vs_lhp);
+            buildSplitsTable('splitsRHP', data.vs_rhp);
+        })
+        .catch(err => console.error('Failed to load splits:', err));
+
+    // Load contact quality
+    fetch('/stats/api/batter/' + batterId + '/contact-quality')
+        .then(r => r.json())
+        .then(data => {
+            buildContactQualityCharts(data);
+        })
+        .catch(err => console.error('Failed to load contact quality:', err));
+});
+</script>
+{% endblock %}

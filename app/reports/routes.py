@@ -74,3 +74,55 @@ def pitcher_pdf(pitcher_id):
     filename = f"Pitcher_Report_{player.name.replace(' ', '_').replace(',', '')}.pdf"
     return send_file(pdf_buf, mimetype='application/pdf',
                      download_name=filename, as_attachment=True)
+
+
+# ── Hitter Heatmap Endpoints ──────────────────────────────────
+
+@bp.route('/batter/<int:batter_id>/heatmap')
+@login_required
+def batter_heatmap(batter_id):
+    """Serve a batter heatmap image as PNG."""
+    from app.reports.services.hitter_heatmap_generator import \
+        HitterHeatmapGenerator
+
+    split = request.args.get('split', 'overall')
+    heatmap_type = request.args.get('type', 'pitched')
+
+    filters = {
+        'game_id': request.args.get('game_id'),
+        'start_date': request.args.get('start_date'),
+        'end_date': request.args.get('end_date'),
+    }
+    filters = {k: v for k, v in filters.items() if v}
+
+    gen = HitterHeatmapGenerator(batter_id=batter_id, filters=filters)
+    img_buf = gen.generate_heatmap(split=split, heatmap_type=heatmap_type)
+    img_buf.seek(0)
+
+    return send_file(img_buf, mimetype='image/png',
+                     download_name=f'heatmap_{batter_id}_{split}_{heatmap_type}.png')
+
+
+@bp.route('/batter/by-name/<path:batter_name>/heatmap')
+@login_required
+def batter_heatmap_by_name(batter_name):
+    """Serve a heatmap for a batter identified by name."""
+    from app.reports.services.hitter_heatmap_generator import \
+        HitterHeatmapGenerator
+
+    split = request.args.get('split', 'overall')
+    heatmap_type = request.args.get('type', 'pitched')
+
+    filters = {
+        'game_id': request.args.get('game_id'),
+        'start_date': request.args.get('start_date'),
+        'end_date': request.args.get('end_date'),
+    }
+    filters = {k: v for k, v in filters.items() if v}
+
+    gen = HitterHeatmapGenerator(batter_name=batter_name, filters=filters)
+    img_buf = gen.generate_heatmap(split=split, heatmap_type=heatmap_type)
+    img_buf.seek(0)
+
+    return send_file(img_buf, mimetype='image/png',
+                     download_name=f'heatmap_{batter_name}_{split}_{heatmap_type}.png')

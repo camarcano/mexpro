@@ -57,6 +57,9 @@ def create_app(config_name=None):
     from app.pitchers import bp as pitchers_bp
     app.register_blueprint(pitchers_bp, url_prefix='/pitchers')
 
+    from app.hitters import bp as hitters_bp
+    app.register_blueprint(hitters_bp, url_prefix='/hitters')
+
     from app.stats import bp as stats_bp
     app.register_blueprint(stats_bp, url_prefix='/stats')
 
