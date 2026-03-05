@@ -39,7 +39,7 @@ class HeatmapGenerator:
     FIGURE_SIZE = (4, 4)
     DPI = 100
     GRID_RESOLUTION = 100
-    MIN_DATA_POINTS = 5
+    MIN_DATA_POINTS = 2
     COLORMAP = 'YlOrRd'
     BACKGROUND_COLOR = '#f0f0f0'
 
@@ -145,6 +145,12 @@ class HeatmapGenerator:
         Returns:
             BytesIO object containing the PNG image data.
         """
+        # If all points are identical, KDE will fail (singular covariance).
+        # Fall back to a scatter plot in that case.
+        unique_points = len(set(zip(x_data, y_data)))
+        if unique_points < 2:
+            return self._render_scatter(x_data, y_data, title)
+
         try:
             fig, ax = plt.subplots(
                 figsize=self.FIGURE_SIZE,
@@ -155,7 +161,11 @@ class HeatmapGenerator:
 
             # Build KDE
             xy = np.vstack([x_data, y_data])
-            kde = gaussian_kde(xy)
+            try:
+                kde = gaussian_kde(xy)
+            except np.linalg.LinAlgError:
+                plt.close('all')
+                return self._render_scatter(x_data, y_data, title)
 
             # Evaluate on grid
             x_grid = np.linspace(self.PLOT_X_MIN, self.PLOT_X_MAX, self.GRID_RESOLUTION)
@@ -231,6 +241,32 @@ class HeatmapGenerator:
             ax.set_ylabel('Height (ft)')
             ax.set_title(title)
 
+            fig.tight_layout()
+
+            buf = BytesIO()
+            fig.savefig(buf, format='png', dpi=self.DPI)
+            buf.seek(0)
+            return buf
+        finally:
+            plt.close('all')
+
+    def _render_scatter(self, x_data, y_data, title):
+        """Render a simple scatter plot when KDE is not possible (too few unique points)."""
+        try:
+            fig, ax = plt.subplots(figsize=self.FIGURE_SIZE, dpi=self.DPI)
+            fig.patch.set_facecolor(self.BACKGROUND_COLOR)
+            ax.set_facecolor(self.BACKGROUND_COLOR)
+
+            ax.scatter(x_data, y_data, color='#e74c3c', s=40, alpha=0.8, zorder=3)
+
+            self._draw_strike_zone(ax)
+            self._draw_home_plate(ax)
+
+            ax.set_xlim(self.PLOT_X_MIN, self.PLOT_X_MAX)
+            ax.set_ylim(self.PLOT_Y_MIN, self.PLOT_Y_MAX)
+            ax.set_xlabel('Horizontal Location (ft)')
+            ax.set_ylabel('Height (ft)')
+            ax.set_title(title)
             fig.tight_layout()
 
             buf = BytesIO()
